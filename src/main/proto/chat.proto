@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package com.cmpe275.generated;
+
+message Pong {
+	bool ack = 1;
+}
+
+message Message {
+	int64 id = 1;
+	int64 type = 2;
+	bytes data = 3;
+	string destination = 4;
+	string origin = 5;
+	int64 timestamp = 6;
+	int64 hops = 7;
+}
+
+message Ack {
+	int64 id = 1;
+}
+
+message User {
+	string name = 1;
+}
+
+service DataTransferService {
+    rpc Send (Message) returns (Ack);
+    rpc Ping (User) returns (Pong);
+}
