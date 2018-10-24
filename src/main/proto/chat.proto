@@ -2,6 +2,11 @@ syntax = "proto3";
 
 package com.cmpe275.generated;
 
+enum MessageType {
+	Text = 0;
+	File = 1;
+}
+
 message Pong {
 	bool ack = 1;
 }
@@ -26,5 +31,5 @@ message User {
 
 service DataTransferService {
     rpc Send (Message) returns (Ack);
-    rpc Ping (User) returns (Pong);
+    rpc Ping (User) returns (stream Message);
 }
