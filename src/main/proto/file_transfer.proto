@@ -1,0 +1,48 @@
+syntax = "proto3";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+option java_package = "com.cmpe275.generated";
+
+package grpc;
+
+message FileInfo {
+    string fileid = 1;
+}
+
+message ChunkInfo {
+    string fileName = 1;
+    int64 chunkId = 2;
+    int64 startSeqNum = 3;
+}
+
+message FileMetaData {
+    string fileName = 1;
+    int64 chunkId = 2;
+    bytes data = 3;
+    int64 seqNum = 4;
+    int64 seqMax = 5;
+}
+
+message ChunkLocationInfo {
+    int64 chunkId = 1;
+    string ip = 2;
+    string port = 3;
+}
+
+message FileLocationInfo {
+    string fileName = 1;
+    repeated ChunkLocationInfo lstChunkLocation = 2;
+    bool isFileFound = 3;
+}
+
+service DataTransferService {
+
+    // From team's client to team's own cluster
+    rpc RequestFileInfo (FileInfo) returns (FileLocationInfo);
+
+    // From team-1 cluster to rest of the nodes of other teams
+    rpc GetFileLocation (FileInfo) returns (FileLocationInfo);
+
+    // From team's client to the actual data-center node (can be any team's node)
+    rpc DownloadChunk (ChunkInfo) returns (stream FileMetaData);
+}
