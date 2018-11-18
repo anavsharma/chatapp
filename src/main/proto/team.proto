@@ -1,0 +1,85 @@
+syntax = "proto3";
+option java_multiple_files = true;
+option java_package = "com.cmpe275.generated";
+
+package grpc;
+
+// data sent & received for liveliness
+message Heartbeat {
+    int64 messageId =1;
+    bool isAck = 2;
+}
+
+// chunk storage info
+message ChunkData{
+    string fileName = 1;
+    int64 chunkId =2;
+    int64 maxChunks =3;
+    string ip = 4;
+    string port = 5;
+    bool isAvailable = 6;
+}
+
+// not being used in this proto but look at additional info for more
+message Chunk{
+    string fileName = 1;
+    int64 chunkId =2;
+    int64 maxChunks =3;
+    int64 seqNum = 4;
+    int64 seqMax =5;
+    bytes data = 6;
+}
+
+//message ChunkAck{
+//    string fileName = 1;
+//    int64 chunkId = 2;
+//    bool done = 4;
+//}
+
+message ChunkDataResponse{
+    string fileName = 1;
+    int64 chunkId =2;
+    bool isAvailable = 3;
+}
+
+message FileQuery{
+    string fileName = 1;
+}
+
+message FileResponse{
+    bool isFound = 1;
+    repeated ChunkData chunks = 2;
+}
+
+//message FileUploadRequest {
+//    string fileName = 1;
+//    int64 size = 2;
+//    int64 maxChunks = 3;
+//}
+
+service clusterService{
+    // to detect if servers are live
+    rpc Liveliness (Heartbeat) returns (Heartbeat);
+
+    // used to change the isAvailable flag in the
+    // coordination server's table:
+    // PrimaryKey | FileName | ChunkID | MaxChunk | isAvailable | IP | Port
+    rpc updateChunkData (ChunkData) returns (ChunkDataResponse);
+
+    // rpc to get the location of chunks for a file
+    rpc isFilePresent (FileQuery) returns (FileResponse);
+
+
+    // NOTE!
+    // implement ListFiles rpc from the file_transfer.proto file
+    // in the coordination server
+
+    // ADDITIONAL INFO:
+    // this is the new file upload rpc
+    // implementing this one instead of the one in the file_transfer.proto file
+    // rpc initiateFileUpload (FileUploadRequest) returns (FileResponse);
+    // this is the new file chunk upload rpc
+    // implement this one instead of the one in the file_transfer.proto file
+    // rpc uploadFileChunk (stream Chunk) returns (ChunkAck);
+
+}
