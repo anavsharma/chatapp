@@ -30,11 +30,11 @@ message Chunk{
     bytes data = 6;
 }
 
-//message ChunkAck{
-//    string fileName = 1;
-//    int64 chunkId = 2;
-//    bool done = 4;
-//}
+message ChunkAck{
+    string fileName = 1;
+    int64 chunkId = 2;
+    bool done = 4;
+}
 
 message ChunkDataResponse{
     string fileName = 1;
@@ -49,13 +49,16 @@ message FileQuery{
 message FileResponse{
     bool isFound = 1;
     repeated ChunkData chunks = 2;
+    int64 requestId = 4;
 }
 
-//message FileUploadRequest {
-//    string fileName = 1;
-//    int64 size = 2;
-//    int64 maxChunks = 3;
-//}
+message FileUploadRequest {
+    string fileName = 1;
+    int64 size = 2;
+    int64 maxChunks = 3;
+    int64 requestId = 4;
+}
+
 
 service clusterService{
     // to detect if servers are live
@@ -77,9 +80,9 @@ service clusterService{
     // ADDITIONAL INFO:
     // this is the new file upload rpc
     // implementing this one instead of the one in the file_transfer.proto file
-    // rpc initiateFileUpload (FileUploadRequest) returns (FileResponse);
+    rpc initiateFileUpload (FileUploadRequest) returns (FileResponse);
+
     // this is the new file chunk upload rpc
     // implement this one instead of the one in the file_transfer.proto file
-    // rpc uploadFileChunk (stream Chunk) returns (ChunkAck);
-
+    rpc uploadFileChunk (stream Chunk) returns (ChunkAck);
 }
