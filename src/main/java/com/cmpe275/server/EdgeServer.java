@@ -1,5 +1,6 @@
 package com.cmpe275.server;
 
+import com.cmpe275.util.Connection;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
@@ -25,14 +26,14 @@ import java.util.concurrent.atomic.AtomicReference;
  * the License.
  */
 
-public class CliqueServer {
-    protected static Logger LOG = LoggerFactory.getLogger("server");
-    protected static AtomicReference<CliqueServer> instance = new AtomicReference<CliqueServer>();
+public class EdgeServer {
+    protected static Logger LOG = LoggerFactory.getLogger(EdgeServer.class.getName());
+    protected static AtomicReference<EdgeServer> instance = new AtomicReference<EdgeServer>();
     protected static Config conf;
-    protected static Boolean isGlobalServer;
-    protected static String serverConfigString;
-    protected static List<Connection> localServerList;
-    protected static List<Connection> globalServerList;
+    public static String serverConfigString;
+    public static List<Connection> localServerList;
+    public static List<Connection> globalServerList;
+    public static List<Connection> coordinationServerList;
 
     // host details
     protected static Integer hostPort;
@@ -41,17 +42,17 @@ public class CliqueServer {
 
     protected Long nextMessageID;
 
-    private CliqueServer(){
+    private EdgeServer(){
         init();
     }
 
     public static void configure(String configArg){
-        CliqueServer.conf = ConfigFactory.load();
-        CliqueServer.serverConfigString = configArg;
+        EdgeServer.conf = ConfigFactory.load();
+        EdgeServer.serverConfigString = configArg;
     }
 
-    public static CliqueServer getInstance(){
-        instance.compareAndSet(null, new CliqueServer());
+    public static EdgeServer getInstance(){
+        instance.compareAndSet(null, new EdgeServer());
         return instance.get();
     }
 
@@ -60,16 +61,13 @@ public class CliqueServer {
 
         Connection svr_1 = new Connection(
                             conf.getString(this.serverConfigString+".localServerList.svrIP_1"),
-                            conf.getLong(this.serverConfigString+".localServerList.svrPort_1"),
-                            conf.getInt(this.serverConfigString+".localServerList.svrID_1"));
+                            conf.getInt(this.serverConfigString+".localServerList.svrPort_1"));
         Connection svr_2 = new Connection(
                             conf.getString(this.serverConfigString+".localServerList.svrIP_2"),
-                            conf.getLong(this.serverConfigString+".localServerList.svrPort_2"),
-                            conf.getInt(this.serverConfigString+".localServerList.svrID_2"));
+                            conf.getInt(this.serverConfigString+".localServerList.svrPort_2"));
         Connection svr_3 = new Connection(
                             conf.getString(this.serverConfigString+".localServerList.svrIP_3"),
-                            conf.getLong(this.serverConfigString+".localServerList.svrPort_3"),
-                            conf.getInt(this.serverConfigString+".localServerList.svrID_3") );
+                            conf.getInt(this.serverConfigString+".localServerList.svrPort_3"));
 
         local_svr_list.add(svr_1);
         local_svr_list.add(svr_2);
@@ -82,21 +80,37 @@ public class CliqueServer {
 
         Connection svr_1 = new Connection(
                             conf.getString(this.serverConfigString+".globalServerList.svrIP_1"),
-                            conf.getLong(this.serverConfigString+".globalServerList.svrPort_1"),
-                            conf.getInt(this.serverConfigString+".globalServerList.svrID_1"));
+                            conf.getInt(this.serverConfigString+".globalServerList.svrPort_1"));
         Connection svr_2 = new Connection(
                             conf.getString(this.serverConfigString+".globalServerList.svrIP_2"),
-                            conf.getLong(this.serverConfigString+".globalServerList.svrPort_2"),
-                            conf.getInt(this.serverConfigString+".globalServerList.svrID_2"));
+                            conf.getInt(this.serverConfigString+".globalServerList.svrPort_2"));
         Connection svr_3 = new Connection(
                             conf.getString(this.serverConfigString+".globalServerList.svrIP_3"),
-                            conf.getLong(this.serverConfigString+".globalServerList.svrPort_3"),
-                            conf.getInt(this.serverConfigString+".globalServerList.svrID_3"));
+                            conf.getInt(this.serverConfigString+".globalServerList.svrPort_3"));
 
         local_svr_list.add(svr_1);
         local_svr_list.add(svr_2);
         local_svr_list.add(svr_3);
         return local_svr_list;
+    }
+
+    private List<Connection> initCoordiantionServerList(Config conf){
+        List<Connection> coordinationServerList = new ArrayList<Connection>();
+        Connection svr_1 = new Connection(
+                conf.getString(this.serverConfigString+".coordinationServerList.svrIP_1"),
+                conf.getInt(this.serverConfigString+".coordinationServerList.svrPort_1"));
+        Connection svr_2 = new Connection(
+                conf.getString(this.serverConfigString+".coordinationServerList.svrIP_2"),
+                conf.getInt(this.serverConfigString+".coordinationServerList.svrPort_2"));
+        Connection svr_3 = new Connection(
+                conf.getString(this.serverConfigString+".coordinationServerList.svrIP_3"),
+                conf.getInt(this.serverConfigString+".coordinationServerList.svrPort_3"));
+
+        coordinationServerList.add(svr_1);
+        coordinationServerList.add(svr_2);
+        coordinationServerList.add(svr_3);
+        return coordinationServerList;
+
     }
 
     private void init() {
@@ -125,7 +139,7 @@ public class CliqueServer {
 
         localServerList = initLocalServerList(conf);
         globalServerList = initGlobalServerList(conf);
-        isGlobalServer = conf.getBoolean(this.serverConfigString+".isGlobalServer");
+        coordinationServerList = initCoordiantionServerList(conf);
 
         nextMessageID = 0L;
     }
