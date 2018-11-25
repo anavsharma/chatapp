@@ -1,7 +1,6 @@
 package com.cmpe275.server;
 
 import com.cmpe275.generated.*;
-import com.cmpe275.proxy.ProxyServer;
 import com.cmpe275.util.Connection;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;

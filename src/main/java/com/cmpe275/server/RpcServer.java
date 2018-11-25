@@ -7,14 +7,17 @@ import java.io.IOException;
 
 public class RpcServer {
     private DataTransferServiceImpl dataTransferService;
+    private ClusterServiceImpl clusterService;
     private EdgeServer edgeServer;
     private Server server;
 
     RpcServer(String svrConf){
         edgeServer = new EdgeServer(svrConf).getInstance(svrConf);
         dataTransferService = new DataTransferServiceImpl(this.edgeServer);
+        clusterService = new ClusterServiceImpl(this.edgeServer);
         server = ServerBuilder.forPort(edgeServer.getServerPort())
                 .addService(dataTransferService)
+                .addService(clusterService)
                 .build();
     }
 
