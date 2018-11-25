@@ -199,6 +199,9 @@ public class Client {
                 System.out.println("Needs 2 parameters: 1. Catalog, 2. Download File 3.Upload File");
         }else{
             if(args.length ==2) switch (Integer.parseInt(args[0])) {
+                case 1:
+                    doListFiles();
+                    break;
                 case 2:
                     doDownload(args[1]);
                     break;
