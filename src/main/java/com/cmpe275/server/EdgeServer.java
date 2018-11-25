@@ -34,6 +34,7 @@ public class EdgeServer {
     public static List<Connection> localServerList;
     public static List<Connection> globalServerList;
     public static List<Connection> coordinationServerList;
+    public static List<Connection> proxyServerList;
 
     // host details
     protected static Integer hostPort;
@@ -42,17 +43,17 @@ public class EdgeServer {
 
     protected Long nextMessageID;
 
-    private EdgeServer(){
+    public EdgeServer(String serverConfigStr){
+        EdgeServer.serverConfigString = serverConfigStr;
         init();
     }
 
     public static void configure(String configArg){
-        EdgeServer.conf = ConfigFactory.load();
         EdgeServer.serverConfigString = configArg;
     }
 
-    public static EdgeServer getInstance(){
-        instance.compareAndSet(null, new EdgeServer());
+    public static EdgeServer getInstance(String serverConfigStr){
+        instance.compareAndSet(null, new EdgeServer(serverConfigStr));
         return instance.get();
     }
 
@@ -68,6 +69,25 @@ public class EdgeServer {
         Connection svr_3 = new Connection(
                             conf.getString(this.serverConfigString+".localServerList.svrIP_3"),
                             conf.getInt(this.serverConfigString+".localServerList.svrPort_3"));
+
+        local_svr_list.add(svr_1);
+        local_svr_list.add(svr_2);
+        local_svr_list.add(svr_3);
+        return local_svr_list;
+    }
+
+    private List<Connection> initProxyServerList(Config conf){
+        List<Connection> local_svr_list = new ArrayList<Connection>();
+
+        Connection svr_1 = new Connection(
+                conf.getString(this.serverConfigString+".proxyServerList.svrIP_1"),
+                conf.getInt(this.serverConfigString+".proxyServerList.svrPort_1"));
+        Connection svr_2 = new Connection(
+                conf.getString(this.serverConfigString+".proxyServerList.svrIP_2"),
+                conf.getInt(this.serverConfigString+".proxyServerList.svrPort_2"));
+        Connection svr_3 = new Connection(
+                conf.getString(this.serverConfigString+".proxyServerList.svrIP_3"),
+                conf.getInt(this.serverConfigString+".proxyServerList.svrPort_3"));
 
         local_svr_list.add(svr_1);
         local_svr_list.add(svr_2);
@@ -140,6 +160,7 @@ public class EdgeServer {
         localServerList = initLocalServerList(conf);
         globalServerList = initGlobalServerList(conf);
         coordinationServerList = initCoordiantionServerList(conf);
+        proxyServerList = initProxyServerList(conf);
 
         nextMessageID = 0L;
     }
