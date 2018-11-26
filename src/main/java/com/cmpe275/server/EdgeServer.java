@@ -32,7 +32,9 @@ public class EdgeServer {
     protected static Config conf;
     public static String serverConfigString;
     public static List<Connection> localServerList;
-    public static List<Connection> globalServerList;
+    public static List<Connection> globalServerList_t1;
+    public static List<Connection> globalServerList_t3;
+    public static List<Connection> globalServerList_t4;
     public static List<Connection> coordinationServerList;
     public static List<Connection> proxyServerList;
 
@@ -98,6 +100,84 @@ public class EdgeServer {
 
     }
 
+    private List<Connection> initGlobalServerList_t1(Config conf){
+        List<Connection> t1 = new ArrayList<Connection>();
+        Connection svr_1 = new Connection(
+                conf.getString("externalServerList.team1.svrIP_1"),
+                conf.getInt("externalServerList.team1.svrPort_1"));
+        Connection svr_2 = new Connection(
+                conf.getString("externalServerList.team1.svrIP_2"),
+                conf.getInt("externalServerList.team1.svrPort_2"));
+        Connection svr_3 = new Connection(
+                conf.getString("externalServerList.team1.svrIP_3"),
+                conf.getInt("externalServerList.team1.svrPort_3"));
+        Connection svr_4 = new Connection(
+                conf.getString("externalServerList.team1.svrIP_4"),
+                conf.getInt("externalServerList.team1.svrPort_4"));
+        Connection svr_5 = new Connection(
+                conf.getString("externalServerList.team1.svrIP_5"),
+                conf.getInt("externalServerList.team1.svrPort_5"));
+
+        t1.add(svr_1);
+        t1.add(svr_2);
+        t1.add(svr_3);
+        t1.add(svr_4);
+        t1.add(svr_5);
+        return t1;
+    }
+
+    private List<Connection> initGlobalServerList_t3(Config conf){
+        List<Connection> t3 = new ArrayList<Connection>();
+        Connection svr_1 = new Connection(
+                conf.getString("externalServerList.team3.svrIP_1"),
+                conf.getInt("externalServerList.team3.svrPort_1"));
+        Connection svr_2 = new Connection(
+                conf.getString("externalServerList.team3.svrIP_2"),
+                conf.getInt("externalServerList.team3.svrPort_2"));
+        Connection svr_3 = new Connection(
+                conf.getString("externalServerList.team3.svrIP_3"),
+                conf.getInt("externalServerList.team3.svrPort_3"));
+        Connection svr_4 = new Connection(
+                conf.getString("externalServerList.team3.svrIP_4"),
+                conf.getInt("externalServerList.team3.svrPort_4"));
+        Connection svr_5 = new Connection(
+                conf.getString("externalServerList.team3.svrIP_5"),
+                conf.getInt("externalServerList.team3.svrPort_5"));
+
+        t3.add(svr_1);
+        t3.add(svr_2);
+        t3.add(svr_3);
+        t3.add(svr_4);
+        t3.add(svr_5);
+        return t3;
+    }
+
+    private List<Connection> initGlobalServerList_t4(Config conf){
+        List<Connection> t4 = new ArrayList<Connection>();
+        Connection svr_1 = new Connection(
+                conf.getString("externalServerList.team4.svrIP_1"),
+                conf.getInt("externalServerList.team4.svrPort_1"));
+        Connection svr_2 = new Connection(
+                conf.getString("externalServerList.team4.svrIP_2"),
+                conf.getInt("externalServerList.team4.svrPort_2"));
+        Connection svr_3 = new Connection(
+                conf.getString("externalServerList.team4.svrIP_3"),
+                conf.getInt("externalServerList.team4.svrPort_3"));
+        Connection svr_4 = new Connection(
+                conf.getString("externalServerList.team4.svrIP_4"),
+                conf.getInt("externalServerList.team4.svrPort_4"));
+        Connection svr_5 = new Connection(
+                conf.getString("externalServerList.team4.svrIP_5"),
+                conf.getInt("externalServerList.team4.svrPort_5"));
+
+        t4.add(svr_1);
+        t4.add(svr_2);
+        t4.add(svr_3);
+        t4.add(svr_4);
+        t4.add(svr_5);
+        return t4;
+    }
+
     private void init() {
         if (conf == null) {
             throw new RuntimeException("server not configured!");
@@ -122,7 +202,9 @@ public class EdgeServer {
             throw new RuntimeException("server port must be above 1024");
 
         localServerList = initLocalServerList(conf);
-        globalServerList = initGlobalServerList(conf);
+        globalServerList_t1 = initGlobalServerList_t1(conf);
+        globalServerList_t3 = initGlobalServerList_t3(conf);
+        globalServerList_t4 = initGlobalServerList_t4(conf);
         coordinationServerList = initCoordiantionServerList(conf);
         proxyServerList = initProxyServerList(conf);
 

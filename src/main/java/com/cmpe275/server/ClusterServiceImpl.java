@@ -21,7 +21,6 @@ public class ClusterServiceImpl extends clusterServiceGrpc.clusterServiceImplBas
     private static Logger LOG = LoggerFactory.getLogger(ClusterServiceImpl.class.getName());
     private EdgeServer edgeServer;
     private static List<ManagedChannel> localChannels = new ArrayList<ManagedChannel>();
-    private static List<ManagedChannel> globalChannels = new ArrayList<ManagedChannel>();
     private static List<ManagedChannel> coordinationChannels = new ArrayList<ManagedChannel>();
     private static List<ManagedChannel> proxyChannels = new ArrayList<ManagedChannel>();
 
@@ -35,11 +34,6 @@ public class ClusterServiceImpl extends clusterServiceGrpc.clusterServiceImplBas
         for(Connection c : EdgeServer.localServerList){
             ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
             localChannels.add(ch);
-        }
-
-        for(Connection c: EdgeServer.globalServerList){
-            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
-            globalChannels.add(ch);
         }
 
         for(Connection c: EdgeServer.coordinationServerList){
@@ -61,7 +55,33 @@ public class ClusterServiceImpl extends clusterServiceGrpc.clusterServiceImplBas
 
     }
 
+    public void isFilePresent(final FileQuery req, StreamObserver<FileResponse> responseObserver){
+        System.out.println("Processing isFilePresent...");
+        //forward request to coordination server.
+        //TODO change hardcoded channel selection to a rand func
+        ManagedChannel ch = coordinationChannels.get(0);
+        clusterServiceGrpc.clusterServiceFutureStub stub = clusterServiceGrpc.newFutureStub(ch);
+        ListenableFuture<FileResponse> res = stub.isFilePresent(req);
+        Futures.addCallback(res, new FutureCallback<FileResponse>() {
+            public void onSuccess(final FileResponse fileResponse) {
+                System.out.println("Successfully completed file upload. ");
+                if(fileResponse.getIsFound()){
+                    System.out.println("File "+req.getFileName()+"is present.");
+                }else{
+                    System.out.println("File "+req.getFileName()+" is not present.");
+                }
+                LOG.debug("Received response.");
+            }
+
+            public void onFailure(Throwable throwable) {
+                LOG.error("Initiate file upload failed. ", throwable.getMessage());
+            }
+        });
+
+    }
+
     public void initiateFileUpload(FileUploadRequest request, StreamObserver<FileResponse> responseObserver){
+        System.out.println("In initiate file upload...");
         responseObserver.onNext(initUpload(request));
         responseObserver.onCompleted();
     }
@@ -75,7 +95,8 @@ public class ClusterServiceImpl extends clusterServiceGrpc.clusterServiceImplBas
         clusterServiceGrpc.clusterServiceFutureStub stub = clusterServiceGrpc.newFutureStub(ch);
         ListenableFuture<FileResponse> res = stub.initiateFileUpload(request);
         Futures.addCallback(res, new FutureCallback<FileResponse>() {
-            public void onSuccess(@Nullable FileResponse fileResponse) {
+            public void onSuccess(final FileResponse fileResponse) {
+                System.out.println("Successfully completed file upload. ");
                 LOG.debug("Received response.");
             }
 
