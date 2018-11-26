@@ -210,6 +210,8 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
         return files;
     }
 
+    //TODO Request File Upload needs to be implemented
+
     public static int getIndex(int i){
         Random rand = new Random();
         return rand.nextInt(i);
