@@ -5,6 +5,7 @@ import com.cmpe275.util.Connection;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -27,37 +28,38 @@ public class Client {
     private static Logger LOG = LoggerFactory.getLogger(Client.class.getName());
     private static Config conf;
     private static List<Connection> edgeServerList;
-    private static long clientID;
-    private static int clientPort;
     private static List<ManagedChannel> chList;
     private static List<DataTransferServiceGrpc.DataTransferServiceFutureStub> stubs;
     private static Long rpcCount;
     private static Semaphore limiter;
 
+    private static long clientID;
+    private static int clientPort;
+
     private static void init(){
         Client.conf = ConfigFactory.parseResources("application.conf");
         LOG.debug("Loaded config file.");
-        Client.clientID = conf.getLong("client.clientID");
-        Client.clientPort = conf.getInt("client.clientPort");
+        Client.clientID = conf.getLong("client1.clientID");
+        Client.clientPort = conf.getInt("client1.clientPort");
         Client.edgeServerList = initEdgeServerList(conf);
         Client.chList = initChList();
         Client.stubs = initStubs();
         Client.rpcCount = 0l;
-        limiter = new Semaphore(10);
+        limiter = new Semaphore(100);
         LOG.debug("Initialized client data.");
     }
 
     private static List<Connection> initEdgeServerList(Config conf){
         List<Connection> serverList = new ArrayList<Connection>();
         Connection svr1 = new Connection(
-                conf.getString("client.localServerList.svrIP_1"),
-                conf.getInt("client.localServerList.svrPort_1"));
+                conf.getString("client1.localServerList.svrIP_1"),
+                conf.getInt("client1.localServerList.svrPort_1"));
         Connection svr2 = new Connection(
-                conf.getString("client.localServerList.svrIP_2"),
-                conf.getInt("client.localServerList.svrPort_2"));
+                conf.getString("client1.localServerList.svrIP_2"),
+                conf.getInt("client1.localServerList.svrPort_2"));
         Connection svr3 = new Connection(
-                conf.getString("client.localServerList.svrIP_3"),
-                conf.getInt("client.localServerList.svrPort_3"));
+                conf.getString("client1.localServerList.svrIP_3"),
+                conf.getInt("client1.localServerList.svrPort_3"));
         serverList.add(svr1);
         serverList.add(svr2);
         serverList.add(svr3);
@@ -71,19 +73,17 @@ public class Client {
                 Client.edgeServerList.get(0).ipAddress,
                 Client.edgeServerList.get(0).port
         ).build();
-//        ManagedChannel ch1 = ManagedChannelBuilder.forAddress(
-//                Client.edgeServerList.get(1).ipAddress,
-//                Client.edgeServerList.get(1).port
-//        ).build();
-//        ManagedChannel ch2 = ManagedChannelBuilder.forAddress(
-//                Client.edgeServerList.get(2).ipAddress,
-//                Client.edgeServerList.get(2).port
-//        ).build();
-//        ManagedChannel ch3 = ManagedChannelBuilder.forAddress(
-//                Client.edgeServerList.get(3).ipAddress,
-//                Client.edgeServerList.get(3).port
-//        ).build();
+        ManagedChannel ch1 = ManagedChannelBuilder.forAddress(
+                Client.edgeServerList.get(1).ipAddress,
+                Client.edgeServerList.get(1).port
+        ).build();
+        ManagedChannel ch2 = ManagedChannelBuilder.forAddress(
+                Client.edgeServerList.get(2).ipAddress,
+                Client.edgeServerList.get(2).port
+        ).build();
         chList.add(ch0);
+        chList.add(ch1);
+        chList.add(ch2);
         return chList;
     }
 
@@ -132,26 +132,22 @@ public class Client {
 
     //non blocking stub
     private static void doListFiles() {
-        try {
-            limiter.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            LOG.error("Could not initiate request due to too many requests.");
-        }
+        System.out.println("Reached Here..");
         FileTransfer.RequestFileList req = FileTransfer.RequestFileList.newBuilder().setIsClient(true).build();
         LOG.debug("File list requested.");
         ListenableFuture<FileTransfer.FileList> res = stubs.get(getIndex()).withDeadlineAfter(5000, TimeUnit.MILLISECONDS).listFiles(req);
         Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
-            public void onSuccess(@Nullable FileTransfer.FileList fileList) {
-                for(int i = 0; i < fileList.getLstFileNamesCount(); ++i){
+            public void onSuccess(FileTransfer.FileList resFileList) {
+                System.out.println("Successful.");
+                for(int i = 0; i < resFileList.getLstFileNamesCount(); ++i){
                     rpcCount++;
                     limiter.release();
                     LOG.debug("File list request succeeded.");
-                    System.out.println(fileList.getLstFileNames(i));
+                    System.out.println("GOT RESULT");
+                    System.out.println(resFileList.getLstFileNames(i));
                 }
             }
             public void onFailure(Throwable throwable) {
-                rpcCount++;
                 limiter.release();
                 LOG.error("File list request failed.");
             }
@@ -190,26 +186,29 @@ public class Client {
         Client.init();
         System.out.println("Started the client");
         if(args.length != 2){
-            if(args.length == 1)
-                doListFiles();
-            else
-                System.out.println("Needs 2 parameters: 1. Catalog, 2. Download File 3.Upload File");
-        }else{
-            if(args.length ==2) switch (Integer.parseInt(args[0])) {
-                case 1:
+            if (args.length == 1) {
+                    System.out.println("Listing files available...");
                     doListFiles();
-                    break;
-                case 2:
-                    doDownload(args[1]);
-                    break;
-                case 3:
-                    doUploadFile(args[1], "./data/");
-                    break;
+                } else {
+                    System.out.println("Needs 2 parameters: 1. Catalog, 2. Download File 3.Upload File");
+                }
+            } else{
+                if(args.length ==2) switch (Integer.parseInt(args[0])) {
+                    case 2:
+                        doDownload(args[1]);
+                        break;
+                    case 3:
+                        doUploadFile(args[1], "./data/");
+                        break;
+                }
             }
-        }
+        Scanner s = new Scanner(System.in);
+        s.nextLine();
+        System.out.println(s);
     }
 
     public static void doUploadFile(String filename, String filepath){
+        //TODO Add a config variable for chunk size,
         byte[] data = {};
         try{
             File file = new File(filepath+"/"+filename);
@@ -356,10 +355,7 @@ public class Client {
         requestObserver.onCompleted();
     }
 
-    public static FileResponse doIsFilePresent(String filename){
-        FileQuery req = FileQuery.newBuilder()
-                        .setFileName(filename)
-                        .build();
+    public static FileResponse doIsFilePresent(FileQuery req){
         try {
             limiter.acquire();
         } catch (InterruptedException e) {
@@ -393,7 +389,7 @@ public class Client {
 
     public static int getIndex(){
         Random rand = new Random();
-        return rand.nextInt(4);
+        return rand.nextInt(1);
     }
 
 }
