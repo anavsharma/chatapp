@@ -24,8 +24,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class Client {
-    protected static Logger LOG = LoggerFactory.getLogger(Client.class.getName());
-    protected static Config conf;
+    private static Logger LOG = LoggerFactory.getLogger(Client.class.getName());
+    private static Config conf;
     private static List<Connection> edgeServerList;
     private static long clientID;
     private static int clientPort;
@@ -34,12 +34,9 @@ public class Client {
     private static Long rpcCount;
     private static Semaphore limiter;
 
-    public static void configure(){
-        Client.conf = ConfigFactory.load();
-        LOG.debug("Loaded config file.");
-    }
-
     private static void init(){
+        Client.conf = ConfigFactory.parseResources("application.conf");
+        LOG.debug("Loaded config file.");
         Client.clientID = conf.getLong("client.clientID");
         Client.clientPort = conf.getInt("client.clientPort");
         Client.edgeServerList = initEdgeServerList(conf);
@@ -74,18 +71,19 @@ public class Client {
                 Client.edgeServerList.get(0).ipAddress,
                 Client.edgeServerList.get(0).port
         ).build();
-        ManagedChannel ch1 = ManagedChannelBuilder.forAddress(
-                Client.edgeServerList.get(1).ipAddress,
-                Client.edgeServerList.get(1).port
-        ).build();
-        ManagedChannel ch2 = ManagedChannelBuilder.forAddress(
-                Client.edgeServerList.get(2).ipAddress,
-                Client.edgeServerList.get(2).port
-        ).build();
-        ManagedChannel ch3 = ManagedChannelBuilder.forAddress(
-                Client.edgeServerList.get(3).ipAddress,
-                Client.edgeServerList.get(3).port
-        ).build();
+//        ManagedChannel ch1 = ManagedChannelBuilder.forAddress(
+//                Client.edgeServerList.get(1).ipAddress,
+//                Client.edgeServerList.get(1).port
+//        ).build();
+//        ManagedChannel ch2 = ManagedChannelBuilder.forAddress(
+//                Client.edgeServerList.get(2).ipAddress,
+//                Client.edgeServerList.get(2).port
+//        ).build();
+//        ManagedChannel ch3 = ManagedChannelBuilder.forAddress(
+//                Client.edgeServerList.get(3).ipAddress,
+//                Client.edgeServerList.get(3).port
+//        ).build();
+        chList.add(ch0);
         return chList;
     }
 
@@ -189,7 +187,6 @@ public class Client {
     }
 
     public static void main(String[] args){
-        Client.configure();
         Client.init();
         System.out.println("Started the client");
         if(args.length != 2){

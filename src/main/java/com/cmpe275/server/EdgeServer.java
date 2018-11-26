@@ -45,11 +45,8 @@ public class EdgeServer {
 
     public EdgeServer(String serverConfigStr){
         EdgeServer.serverConfigString = serverConfigStr;
+        conf = ConfigFactory.parseResources("application.conf");
         init();
-    }
-
-    public static void configure(String configArg){
-        EdgeServer.serverConfigString = configArg;
     }
 
     public static EdgeServer getInstance(String serverConfigStr){
@@ -63,16 +60,8 @@ public class EdgeServer {
         Connection svr_1 = new Connection(
                             conf.getString(this.serverConfigString+".localServerList.svrIP_1"),
                             conf.getInt(this.serverConfigString+".localServerList.svrPort_1"));
-        Connection svr_2 = new Connection(
-                            conf.getString(this.serverConfigString+".localServerList.svrIP_2"),
-                            conf.getInt(this.serverConfigString+".localServerList.svrPort_2"));
-        Connection svr_3 = new Connection(
-                            conf.getString(this.serverConfigString+".localServerList.svrIP_3"),
-                            conf.getInt(this.serverConfigString+".localServerList.svrPort_3"));
 
         local_svr_list.add(svr_1);
-        local_svr_list.add(svr_2);
-        local_svr_list.add(svr_3);
         return local_svr_list;
     }
 
@@ -82,16 +71,8 @@ public class EdgeServer {
         Connection svr_1 = new Connection(
                 conf.getString(this.serverConfigString+".proxyServerList.svrIP_1"),
                 conf.getInt(this.serverConfigString+".proxyServerList.svrPort_1"));
-        Connection svr_2 = new Connection(
-                conf.getString(this.serverConfigString+".proxyServerList.svrIP_2"),
-                conf.getInt(this.serverConfigString+".proxyServerList.svrPort_2"));
-        Connection svr_3 = new Connection(
-                conf.getString(this.serverConfigString+".proxyServerList.svrIP_3"),
-                conf.getInt(this.serverConfigString+".proxyServerList.svrPort_3"));
 
         local_svr_list.add(svr_1);
-        local_svr_list.add(svr_2);
-        local_svr_list.add(svr_3);
         return local_svr_list;
     }
 
@@ -101,16 +82,8 @@ public class EdgeServer {
         Connection svr_1 = new Connection(
                             conf.getString(this.serverConfigString+".globalServerList.svrIP_1"),
                             conf.getInt(this.serverConfigString+".globalServerList.svrPort_1"));
-        Connection svr_2 = new Connection(
-                            conf.getString(this.serverConfigString+".globalServerList.svrIP_2"),
-                            conf.getInt(this.serverConfigString+".globalServerList.svrPort_2"));
-        Connection svr_3 = new Connection(
-                            conf.getString(this.serverConfigString+".globalServerList.svrIP_3"),
-                            conf.getInt(this.serverConfigString+".globalServerList.svrPort_3"));
 
         local_svr_list.add(svr_1);
-        local_svr_list.add(svr_2);
-        local_svr_list.add(svr_3);
         return local_svr_list;
     }
 
@@ -119,16 +92,8 @@ public class EdgeServer {
         Connection svr_1 = new Connection(
                 conf.getString(this.serverConfigString+".coordinationServerList.svrIP_1"),
                 conf.getInt(this.serverConfigString+".coordinationServerList.svrPort_1"));
-        Connection svr_2 = new Connection(
-                conf.getString(this.serverConfigString+".coordinationServerList.svrIP_2"),
-                conf.getInt(this.serverConfigString+".coordinationServerList.svrPort_2"));
-        Connection svr_3 = new Connection(
-                conf.getString(this.serverConfigString+".coordinationServerList.svrIP_3"),
-                conf.getInt(this.serverConfigString+".coordinationServerList.svrPort_3"));
 
         coordinationServerList.add(svr_1);
-        coordinationServerList.add(svr_2);
-        coordinationServerList.add(svr_3);
         return coordinationServerList;
 
     }
@@ -137,8 +102,7 @@ public class EdgeServer {
         if (conf == null) {
             throw new RuntimeException("server not configured!");
         }
-
-        String tmp_ip = conf.getString(this.serverConfigString+".serverConig.hostIP");
+        String tmp_ip = conf.getString(this.serverConfigString+".serverConfig.hostIP");
         if (tmp_ip == null)
             throw new RuntimeException("missing server ID");
         hostIP = tmp_ip;
