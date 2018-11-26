@@ -33,12 +33,12 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransferServiceImplBase {
     private static Logger LOG = LoggerFactory.getLogger(DataTransferServiceImpl.class.getName());
     private EdgeServer edgeServer;
     private static List<ManagedChannel> localChannels = new ArrayList<ManagedChannel>();
-    private static List<ManagedChannel> globalChannels = new ArrayList<ManagedChannel>();
     private static List<ManagedChannel> coordinationChannels = new ArrayList<ManagedChannel>();
 
     DataTransferServiceImpl(EdgeServer edgeServer){
@@ -53,11 +53,6 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
             localChannels.add(ch);
         }
 
-        for(Connection c: EdgeServer.globalServerList){
-            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
-            globalChannels.add(ch);
-        }
-
         for(Connection c: EdgeServer.coordinationServerList){
             ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
             coordinationChannels.add(ch);
@@ -70,17 +65,24 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
 
     private FileTransfer.FileLocationInfo getAllClusterInfo(FileTransfer.FileInfo request) {
         int i = 0;
-        for(i = 0; i< globalChannels.size(); i++){
-            FileTransfer.FileLocationInfo locationInfo = getGlobalClusterInfo(request, i);
-            if(locationInfo.getIsFileFound()){
-                return locationInfo;
-            }
-        }
+        Connection t1 = edgeServer.globalServerList_t1.get(getIndex(5));
+        Connection t3 = edgeServer.globalServerList_t3.get(getIndex(5));
+        Connection t4 = edgeServer.globalServerList_t4.get(getIndex(5));
+        FileTransfer.FileLocationInfo locationInfo_t1 = getGlobalClusterInfo(request, t1);
+        FileTransfer.FileLocationInfo locationInfo_t3 = getGlobalClusterInfo(request, t3);
+        FileTransfer.FileLocationInfo locationInfo_t4 = getGlobalClusterInfo(request, t4);
+        FileTransfer.FileLocationInfo allFileLocations = FileTransfer.FileLocationInfo.newBuilder()
+                            .setFileName(locationInfo_t1.getFileName())
+                            .mergeFrom(locationInfo_t1)
+                            .mergeFrom(locationInfo_t3)
+                            .mergeFrom(locationInfo_t4)
+                            .setIsFileFound(locationInfo_t1.getIsFileFound()||locationInfo_t3.getIsFileFound()||locationInfo_t4.getIsFileFound())
+                            .build();
         return FileTransfer.FileLocationInfo.newBuilder().setIsFileFound(false).build();
     }
 
-    public FileTransfer.FileLocationInfo getGlobalClusterInfo(FileTransfer.FileInfo req, int index){
-        ManagedChannel ch = coordinationChannels.get(index);
+    public FileTransfer.FileLocationInfo getGlobalClusterInfo(FileTransfer.FileInfo req, Connection c){
+        ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
         DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch);
         ListenableFuture<FileTransfer.FileLocationInfo> res = stub.getFileLocation(req);
         Futures.addCallback(res, new FutureCallback<FileTransfer.FileLocationInfo>() {
@@ -149,9 +151,9 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
     private FileTransfer.FileList getFileLists(FileTransfer.RequestFileList request){
         FileTransfer.RequestFileList globalRequest = FileTransfer.RequestFileList.newBuilder().setIsClient(false).build();
         FileTransfer.FileList localList = getFileListLocal(request);
-        FileTransfer.FileList globalList0 = getFileListGlobal(globalRequest, 0);
-        FileTransfer.FileList globalList1 = getFileListGlobal(globalRequest, 1);
-        FileTransfer.FileList globalList2 = getFileListGlobal(globalRequest, 2);
+        FileTransfer.FileList globalList0 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t1.get(0));
+        FileTransfer.FileList globalList1 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t3.get(0));
+        FileTransfer.FileList globalList2 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t4.get(0));
 
         FileTransfer.FileList allFiles = FileTransfer.FileList.newBuilder()
                                             .mergeFrom(localList)
@@ -185,12 +187,12 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
         return files;
     }
 
-    private FileTransfer.FileList getFileListGlobal(FileTransfer.RequestFileList request, int i){
-        ManagedChannel ch0 = globalChannels.get(i);
+    private FileTransfer.FileList getFileListGlobal(FileTransfer.RequestFileList request, Connection c){
+        ManagedChannel ch0 = ManagedChannelBuilder.forAddress(c.ipAddress,c.port).usePlaintext().build();
         DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch0);
         ListenableFuture<FileTransfer.FileList> res = stub.listFiles(request);
         Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
-            public void onSuccess(@Nullable FileTransfer.FileList fileList) {
+            public void onSuccess(FileTransfer.FileList fileList) {
                 LOG.debug("File list received from coordination server.");
             }
 
@@ -206,6 +208,11 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
             LOG.error("Error:");
         }
         return files;
+    }
+
+    public static int getIndex(int i){
+        Random rand = new Random();
+        return rand.nextInt(i);
     }
 
 }
