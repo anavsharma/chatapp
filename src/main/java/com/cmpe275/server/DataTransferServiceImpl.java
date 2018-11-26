@@ -49,12 +49,12 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
 
     public static void initConnections(){
         for(Connection c : EdgeServer.localServerList){
-            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
+            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext(true).build();
             localChannels.add(ch);
         }
 
         for(Connection c: EdgeServer.coordinationServerList){
-            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
+            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext(true).build();
             coordinationChannels.add(ch);
         }
     }
@@ -82,7 +82,7 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
     }
 
     public FileTransfer.FileLocationInfo getGlobalClusterInfo(FileTransfer.FileInfo req, Connection c){
-        ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
+        ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext(true).build();
         DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch);
         ListenableFuture<FileTransfer.FileLocationInfo> res = stub.getFileLocation(req);
         Futures.addCallback(res, new FutureCallback<FileTransfer.FileLocationInfo>() {
@@ -136,16 +136,16 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
 
     public void listFiles(FileTransfer.RequestFileList request, StreamObserver<FileTransfer.FileList> responseObserver){
         FileTransfer.FileListOrBuilder files = FileTransfer.FileList.newBuilder();
-        if(request.getIsClient()){
+        //if(request.getIsClient()){
             //forward request to coordination server
             responseObserver.onNext(getFileLists(request));
             responseObserver.onCompleted();
             //forward request to other clusters
-        } else {
+        //} else {
             //forward request to coordination server
             responseObserver.onNext(getFileListLocal(request));
             responseObserver.onCompleted();
-        }
+        //}
     }
 
     private FileTransfer.FileList getFileLists(FileTransfer.RequestFileList request){
@@ -184,11 +184,12 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
             e.printStackTrace();
             LOG.error("Error:");
         }
+        ch.shutdown();
         return files;
     }
 
     private FileTransfer.FileList getFileListGlobal(FileTransfer.RequestFileList request, Connection c){
-        ManagedChannel ch0 = ManagedChannelBuilder.forAddress(c.ipAddress,c.port).usePlaintext().build();
+        ManagedChannel ch0 = ManagedChannelBuilder.forAddress(c.ipAddress,c.port).usePlaintext(true).build();
         DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch0);
         ListenableFuture<FileTransfer.FileList> res = stub.listFiles(request);
         Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {

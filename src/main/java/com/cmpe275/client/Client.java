@@ -39,8 +39,6 @@ public class Client {
     private static void init(){
         Client.conf = ConfigFactory.parseResources("application.conf");
         LOG.debug("Loaded config file.");
-        Client.clientID = conf.getLong("client1.clientID");
-        Client.clientPort = conf.getInt("client1.clientPort");
         Client.edgeServerList = initEdgeServerList(conf);
         Client.chList = initChList();
         Client.stubs = initStubs();
@@ -72,15 +70,15 @@ public class Client {
         ManagedChannel ch0 = ManagedChannelBuilder.forAddress(
                 Client.edgeServerList.get(0).ipAddress,
                 Client.edgeServerList.get(0).port
-        ).build();
+        ).usePlaintext(true).build();
         ManagedChannel ch1 = ManagedChannelBuilder.forAddress(
                 Client.edgeServerList.get(1).ipAddress,
                 Client.edgeServerList.get(1).port
-        ).build();
+        ).usePlaintext(true).build();
         ManagedChannel ch2 = ManagedChannelBuilder.forAddress(
                 Client.edgeServerList.get(2).ipAddress,
                 Client.edgeServerList.get(2).port
-        ).build();
+        ).usePlaintext(true).build();
         chList.add(ch0);
         chList.add(ch1);
         chList.add(ch2);
@@ -105,7 +103,7 @@ public class Client {
         }
         FileTransfer.FileInfo req = FileTransfer.FileInfo.newBuilder().setFileName(filename).build();
         LOG.debug("File Info requested.");
-        ListenableFuture<FileTransfer.FileLocationInfo> res = stubs.get(getIndex()).withDeadlineAfter(5000, TimeUnit.MILLISECONDS).getFileLocation(req);
+        ListenableFuture<FileTransfer.FileLocationInfo> res = stubs.get(getIndex()).getFileLocation(req);
         Futures.addCallback(res, new FutureCallback<FileTransfer.FileLocationInfo>() {
             public void onSuccess(@Nullable FileTransfer.FileLocationInfo fileLocationInfo) {
                 rpcCount++;
@@ -135,7 +133,7 @@ public class Client {
         System.out.println("Reached Here..");
         FileTransfer.RequestFileList req = FileTransfer.RequestFileList.newBuilder().setIsClient(true).build();
         LOG.debug("File list requested.");
-        ListenableFuture<FileTransfer.FileList> res = stubs.get(getIndex()).withDeadlineAfter(5000, TimeUnit.MILLISECONDS).listFiles(req);
+        ListenableFuture<FileTransfer.FileList> res = stubs.get(getIndex()).withDeadlineAfter(25000, TimeUnit.MILLISECONDS).listFiles(req);
         Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
             public void onSuccess(FileTransfer.FileList resFileList) {
                 System.out.println("Successful.");
@@ -145,11 +143,13 @@ public class Client {
                     LOG.debug("File list request succeeded.");
                     System.out.println("GOT RESULT");
                     System.out.println(resFileList.getLstFileNames(i));
+                    chList.get(getIndex()).shutdown();
                 }
             }
             public void onFailure(Throwable throwable) {
                 limiter.release();
                 LOG.error("File list request failed.");
+                chList.get(getIndex()).shutdown();
             }
         });
     }
