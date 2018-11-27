@@ -8,11 +8,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -32,17 +34,17 @@ public class ClusterServiceImpl extends clusterServiceGrpc.clusterServiceImplBas
 
     public static void initConnections(){
         for(Connection c : EdgeServer.localServerList){
-            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
+            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext(true).build();
             localChannels.add(ch);
         }
 
         for(Connection c: EdgeServer.coordinationServerList){
-            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
+            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext(true).build();
             coordinationChannels.add(ch);
         }
 
         for(Connection c: EdgeServer.proxyServerList){
-            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext().build();
+            ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext(true).build();
             proxyChannels.add(ch);
         }
     }
@@ -60,23 +62,28 @@ public class ClusterServiceImpl extends clusterServiceGrpc.clusterServiceImplBas
         //forward request to coordination server.
         //TODO change hardcoded channel selection to a rand func
         ManagedChannel ch = coordinationChannels.get(0);
-        clusterServiceGrpc.clusterServiceFutureStub stub = clusterServiceGrpc.newFutureStub(ch);
-        ListenableFuture<FileResponse> res = stub.isFilePresent(req);
-        Futures.addCallback(res, new FutureCallback<FileResponse>() {
-            public void onSuccess(final FileResponse fileResponse) {
-                System.out.println("Successfully completed file upload. ");
-                if(fileResponse.getIsFound()){
-                    System.out.println("File "+req.getFileName()+"is present.");
-                }else{
-                    System.out.println("File "+req.getFileName()+" is not present.");
-                }
-                LOG.debug("Received response.");
-            }
-
-            public void onFailure(Throwable throwable) {
-                LOG.error("Initiate file upload failed. ", throwable.getMessage());
-            }
-        });
+        clusterServiceGrpc.clusterServiceBlockingStub stub = clusterServiceGrpc.newBlockingStub(ch);
+        try{
+            FileResponse res = stub.isFilePresent(req);
+        } catch (StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
+        }
+//        ListenableFuture<FileResponse> res = stub.isFilePresent(req);
+//        Futures.addCallback(res, new FutureCallback<FileResponse>() {
+//            public void onSuccess(final FileResponse fileResponse) {
+//                System.out.println("Successfully completed file upload. ");
+//                if(fileResponse.getIsFound()){
+//                    System.out.println("File "+req.getFileName()+"is present.");
+//                }else{
+//                    System.out.println("File "+req.getFileName()+" is not present.");
+//                }
+//                LOG.debug("Received response.");
+//            }
+//
+//            public void onFailure(Throwable throwable) {
+//                LOG.error("Initiate file upload failed. ", throwable.getMessage());
+//            }
+//        });
 
     }
 
@@ -87,32 +94,41 @@ public class ClusterServiceImpl extends clusterServiceGrpc.clusterServiceImplBas
     }
 
     private FileResponse initUpload(FileUploadRequest request) {
+        System.out.println();
         String filename = request.getFileName();
         long maxChunks = request.getMaxChunks();
-        LOG.debug("Processing init file upload for request: ", request.getRequestId());
+        System.out.print("Processing init file upload for request: "+ request.getRequestId());
 
         ManagedChannel ch = coordinationChannels.get(0);
-        clusterServiceGrpc.clusterServiceFutureStub stub = clusterServiceGrpc.newFutureStub(ch);
-        ListenableFuture<FileResponse> res = stub.initiateFileUpload(request);
-        Futures.addCallback(res, new FutureCallback<FileResponse>() {
-            public void onSuccess(final FileResponse fileResponse) {
-                System.out.println("Successfully completed file upload. ");
-                LOG.debug("Received response.");
-            }
-
-            public void onFailure(Throwable throwable) {
-                LOG.error("Initiate file upload failed. ", throwable.getMessage());
-            }
-        });
-        FileResponse fileRes = null;
-        try {
-            fileRes = res.get();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
+        clusterServiceGrpc.clusterServiceBlockingStub stub = clusterServiceGrpc.newBlockingStub(ch);
+        FileResponseOrBuilder retVal = FileResponse.newBuilder();
+        try{
+            FileResponse res = stub.initiateFileUpload(request);
+            ((FileResponse.Builder) retVal).mergeFrom(res);
+        } catch (StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
         }
-        return fileRes;
+//        clusterServiceGrpc.clusterServiceFutureStub stub = clusterServiceGrpc.newFutureStub(ch);
+//        ListenableFuture<FileResponse> res = stub.initiateFileUpload(request);
+//        Futures.addCallback(res, new FutureCallback<FileResponse>() {
+//            public void onSuccess(final FileResponse fileResponse) {
+//                System.out.println("Successfully completed file upload. ");
+//                LOG.debug("Received response.");
+//            }
+//
+//            public void onFailure(Throwable throwable) {
+//                LOG.error("Initiate file upload failed. ", throwable.getMessage());
+//            }
+//        });
+//        FileResponse fileRes = null;
+//        try {
+//            fileRes = res.get();
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        } catch (ExecutionException e) {
+//            e.printStackTrace();
+//        }
+        return ((FileResponse.Builder) retVal).build();
     }
 
     public StreamObserver<Chunk> uploadFileChunk(final StreamObserver<ChunkAck> responseObserver){

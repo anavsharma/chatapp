@@ -26,14 +26,13 @@ import grpc.DataTransferServiceGrpc;
 import grpc.FileTransfer;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransferServiceImplBase {
     private static Logger LOG = LoggerFactory.getLogger(DataTransferServiceImpl.class.getName());
@@ -83,132 +82,188 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
 
     public FileTransfer.FileLocationInfo getGlobalClusterInfo(FileTransfer.FileInfo req, Connection c){
         ManagedChannel ch = ManagedChannelBuilder.forAddress(c.ipAddress, c.port).usePlaintext(true).build();
-        DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch);
-        ListenableFuture<FileTransfer.FileLocationInfo> res = stub.getFileLocation(req);
-        Futures.addCallback(res, new FutureCallback<FileTransfer.FileLocationInfo>() {
-            public void onSuccess(@Nullable FileTransfer.FileLocationInfo fileLocationInfo) {
-                LOG.debug("GetLocalClusterInfo: Got a response from local.");
-            }
-
-            public void onFailure(Throwable throwable) {
-                LOG.error("Could not get file details.");
-            }
-        });
-        FileTransfer.FileLocationInfo locationInfo = null;
+        DataTransferServiceGrpc.DataTransferServiceBlockingStub stub = DataTransferServiceGrpc.newBlockingStub(ch);
+        FileTransfer.FileLocationInfoOrBuilder retVal = FileTransfer.FileLocationInfo.newBuilder();
         try{
-            locationInfo = res.get();
-        } catch (Exception e){
-            e.printStackTrace();
-            LOG.error("Error:");
+            FileTransfer.FileLocationInfo fileLocationInfo = stub.requestFileInfo(req);
+            ((FileTransfer.FileLocationInfo.Builder) retVal).mergeFrom(fileLocationInfo);
+        } catch  (StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
         }
-        return locationInfo;
+//        ListenableFuture<FileTransfer.FileLocationInfo> res = stub.getFileLocation(req);
+//        Futures.addCallback(res, new FutureCallback<FileTransfer.FileLocationInfo>() {
+//            public void onSuccess(@Nullable FileTransfer.FileLocationInfo fileLocationInfo) {
+//                LOG.debug("GetLocalClusterInfo: Got a response from local.");
+//            }
+//
+//            public void onFailure(Throwable throwable) {
+//                LOG.error("Could not get file details.");
+//            }
+//        });
+//        FileTransfer.FileLocationInfo locationInfo = null;
+//        try{
+//            locationInfo = res.get();
+//        } catch (Exception e){
+//            e.printStackTrace();
+//            LOG.error("Error:");
+//        }
+//        return locationInfo;
+        return ((FileTransfer.FileLocationInfo.Builder) retVal).build();
     }
 
     public FileTransfer.FileLocationInfo getLocalClusterInfo(FileTransfer.FileInfo req){
         ManagedChannel ch = coordinationChannels.get(0);
-        DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch);
-        ListenableFuture<FileTransfer.FileLocationInfo> res = stub.getFileLocation(req);
-        Futures.addCallback(res, new FutureCallback<FileTransfer.FileLocationInfo>() {
-            public void onSuccess(@Nullable FileTransfer.FileLocationInfo fileLocationInfo) {
-                LOG.debug("GetLocalClusterInfo: Got a response from local.");
-            }
-
-            public void onFailure(Throwable throwable) {
-                LOG.error("Could not get file details.");
-            }
-        });
-        FileTransfer.FileLocationInfo locationInfo = null;
+        DataTransferServiceGrpc.DataTransferServiceBlockingStub stub = DataTransferServiceGrpc.newBlockingStub(ch);
+//        DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch);
+//        ListenableFuture<FileTransfer.FileLocationInfo> res = stub.getFileLocation(req);
+//        Futures.addCallback(res, new FutureCallback<FileTransfer.FileLocationInfo>() {
+//            public void onSuccess(@Nullable FileTransfer.FileLocationInfo fileLocationInfo) {
+//                LOG.debug("GetLocalClusterInfo: Got a response from local.");
+//            }
+//
+//            public void onFailure(Throwable throwable) {
+//                LOG.error("Could not get file details.");
+//            }
+//        });
+//        FileTransfer.FileLocationInfo locationInfo = null;
+//        try{
+//            locationInfo = res.get();
+//        } catch (Exception e){
+//            e.printStackTrace();
+//            LOG.error("Error:");
+//        }
+//
+//        return locationInfo;
+        FileTransfer.FileLocationInfoOrBuilder retVal = FileTransfer.FileLocationInfo.newBuilder();
         try{
-            locationInfo = res.get();
-        } catch (Exception e){
-            e.printStackTrace();
-            LOG.error("Error:");
+            FileTransfer.FileLocationInfo fileLocationInfo = stub.requestFileInfo(req);
+            ((FileTransfer.FileLocationInfo.Builder) retVal).mergeFrom(fileLocationInfo);
+        } catch  (StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
         }
-
-        return locationInfo;
-
+        return ((FileTransfer.FileLocationInfo.Builder) retVal).build();
     }
 
     public void getFileLocation(FileTransfer.FileInfo request, StreamObserver<FileTransfer.FileLocationInfo> responseObserver){
        responseObserver.onNext(getLocalClusterInfo(request));
        responseObserver.onCompleted();
     }
-
+    @Override
     public void listFiles(FileTransfer.RequestFileList request, StreamObserver<FileTransfer.FileList> responseObserver){
         FileTransfer.FileListOrBuilder files = FileTransfer.FileList.newBuilder();
-        //if(request.getIsClient()){
+        if(request.getIsClient()){
             //forward request to coordination server
             responseObserver.onNext(getFileLists(request));
             responseObserver.onCompleted();
             //forward request to other clusters
-        //} else {
-            //forward request to coordination server
-            responseObserver.onNext(getFileListLocal(request));
-            responseObserver.onCompleted();
-        //}
+        }
+//        else {
+//            //forward request to coordination server
+//            responseObserver.onNext(getFileListLocal(request));
+//            responseObserver.onCompleted();
+//        }
     }
 
     private FileTransfer.FileList getFileLists(FileTransfer.RequestFileList request){
         FileTransfer.RequestFileList globalRequest = FileTransfer.RequestFileList.newBuilder().setIsClient(false).build();
         FileTransfer.FileList localList = getFileListLocal(request);
-        FileTransfer.FileList globalList0 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t1.get(0));
-        FileTransfer.FileList globalList1 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t3.get(0));
-        FileTransfer.FileList globalList2 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t4.get(0));
+        Set<FileTransfer.FileList> consolidatedList = new HashSet<FileTransfer.FileList>();
+        for(int i=0; i<5; i++){
+            FileTransfer.FileList globalList1 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t1.get(i));
+            if (globalList1.getLstFileNamesCount() > 0) {
+                consolidatedList.add(globalList1);
+            }
+        }
+        for(int i=0; i<5; i++){
+            FileTransfer.FileList globalList3 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t3.get(i));
+            if (globalList3.getLstFileNamesCount() > 0) {
+                consolidatedList.add(globalList3);
+            }
+        }
+        for(int i=0; i<5; i++){
+            FileTransfer.FileList globalList2 = getFileListGlobal(globalRequest, edgeServer.globalServerList_t4.get(i));
+            if (globalList2.getLstFileNamesCount() > 0) {
+                consolidatedList.add(globalList2);
+            }
+        }
+        FileTransfer.FileListOrBuilder allFiles = FileTransfer.FileList.newBuilder();
+        List<String> files = new ArrayList<String>();
+        int counter = 0;
+        for(FileTransfer.FileList fileList: consolidatedList){
+//            for(int i = 0; (i < fileList.getLstFileNamesCount()) && (fileList.getLstFileNamesCount()!=0); i++){
+//                ((FileTransfer.FileList.Builder) allFiles).setLstFileNames(counter, fileList.getLstFileNames(i));
+//                ++counter;
+//            }
+             fileList.
+        }
 
-        FileTransfer.FileList allFiles = FileTransfer.FileList.newBuilder()
-                                            .mergeFrom(localList)
-                                            .mergeFrom(globalList0)
-                                            .mergeFrom(globalList1)
-                                            .mergeFrom(globalList2)
-                                            .build();
-        return allFiles;
+        return ((FileTransfer.FileList.Builder) allFiles).build();
     }
 
     private FileTransfer.FileList getFileListLocal(FileTransfer.RequestFileList request) {
         ManagedChannel ch = coordinationChannels.get(0);
-        DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch);
-        ListenableFuture<FileTransfer.FileList>  res = stub.listFiles(request);
-        Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
-            public void onSuccess(@Nullable FileTransfer.FileList fileList) {
-                LOG.debug("File list received from coordination server.");
-            }
-
-            public void onFailure(Throwable throwable) {
-                LOG.error("File list not received from coordination server.");
-            }
-        });
-        FileTransfer.FileList files = null;
+        DataTransferServiceGrpc.DataTransferServiceBlockingStub stub = DataTransferServiceGrpc.newBlockingStub(ch);
+//        DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch);
+//        ListenableFuture<FileTransfer.FileList>  res = stub.listFiles(request);
+//        Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
+//            public void onSuccess(@Nullable FileTransfer.FileList fileList) {
+//                LOG.debug("File list received from coordination server.");
+//            }
+//
+//            public void onFailure(Throwable throwable) {
+//                LOG.error("File list not received from coordination server.");
+//            }
+//        });
+//
+//        FileTransfer.FileList files = null;
+//        try{
+//            files = res.get();
+//        }catch (Exception e){
+//            e.printStackTrace();
+//            LOG.error("Error:");
+//        }
+//        ch.shutdown();
+//        return files;
+        FileTransfer.FileListOrBuilder retVal = FileTransfer.FileList.newBuilder();
         try{
-            files = res.get();
-        }catch (Exception e){
-            e.printStackTrace();
-            LOG.error("Error:");
+            FileTransfer.FileList res = stub.listFiles(request);
+            ((FileTransfer.FileList.Builder) retVal).mergeFrom(res);
+        }catch(StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
         }
-        ch.shutdown();
-        return files;
+        return ((FileTransfer.FileList.Builder) retVal).build();
     }
 
     private FileTransfer.FileList getFileListGlobal(FileTransfer.RequestFileList request, Connection c){
         ManagedChannel ch0 = ManagedChannelBuilder.forAddress(c.ipAddress,c.port).usePlaintext(true).build();
-        DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch0);
-        ListenableFuture<FileTransfer.FileList> res = stub.listFiles(request);
-        Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
-            public void onSuccess(FileTransfer.FileList fileList) {
-                LOG.debug("File list received from coordination server.");
-            }
-
-            public void onFailure(Throwable throwable) {
-                LOG.error("File list not received from coordination server.");
-            }
-        });
-        FileTransfer.FileList files = null;
+        DataTransferServiceGrpc.DataTransferServiceBlockingStub stub = DataTransferServiceGrpc.newBlockingStub(ch0);
+        FileTransfer.FileListOrBuilder retVal = FileTransfer.FileList.newBuilder();
         try{
-            files = res.get();
-        }catch (Exception e){
-            e.printStackTrace();
-            LOG.error("Error:");
+            FileTransfer.FileList res = stub.listFiles(request);
+            ((FileTransfer.FileList.Builder) retVal).mergeFrom(res);
+        }catch(StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
         }
-        return files;
+        return ((FileTransfer.FileList.Builder) retVal).build();
+//        DataTransferServiceGrpc.DataTransferServiceFutureStub stub = DataTransferServiceGrpc.newFutureStub(ch0);
+//        ListenableFuture<FileTransfer.FileList> res = stub.listFiles(request);
+//        Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
+//            public void onSuccess(FileTransfer.FileList fileList) {
+//                LOG.debug("File list received from coordination server.");
+//            }
+//
+//            public void onFailure(Throwable throwable) {
+//                LOG.error("File list not received from coordination server.");
+//            }
+//        });
+//        FileTransfer.FileList files = null;
+//        try{
+//            files = res.get();
+//        }catch (Exception e){
+//            e.printStackTrace();
+//            LOG.error("Error:");
+//        }
+//        return files;
     }
 
     //TODO Request File Upload needs to be implemented

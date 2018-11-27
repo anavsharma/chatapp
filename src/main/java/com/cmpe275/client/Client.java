@@ -14,6 +14,7 @@ import grpc.FileTransfer;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,14 +51,14 @@ public class Client {
     private static List<Connection> initEdgeServerList(Config conf){
         List<Connection> serverList = new ArrayList<Connection>();
         Connection svr1 = new Connection(
-                conf.getString("client1.localServerList.svrIP_1"),
-                conf.getInt("client1.localServerList.svrPort_1"));
+                conf.getString("client1.coordinationServerList.svrIP_1"),
+                conf.getInt("client1.coordinationServerList.svrPort_1"));
         Connection svr2 = new Connection(
-                conf.getString("client1.localServerList.svrIP_2"),
-                conf.getInt("client1.localServerList.svrPort_2"));
+                conf.getString("client1.coordinationServerList.svrIP_2"),
+                conf.getInt("client1.coordinationServerList.svrPort_2"));
         Connection svr3 = new Connection(
-                conf.getString("client1.localServerList.svrIP_3"),
-                conf.getInt("client1.localServerList.svrPort_3"));
+                conf.getString("client1.coordinationServerList.svrIP_3"),
+                conf.getInt("client1.coordinationServerList.svrPort_3"));
         serverList.add(svr1);
         serverList.add(svr2);
         serverList.add(svr3);
@@ -128,31 +129,52 @@ public class Client {
         return fileLocationInfo;
     }
 
-    //non blocking stub
-    private static void doListFiles() {
-        System.out.println("Reached Here..");
-        FileTransfer.RequestFileList req = FileTransfer.RequestFileList.newBuilder().setIsClient(true).build();
-        LOG.debug("File list requested.");
-        ListenableFuture<FileTransfer.FileList> res = stubs.get(getIndex()).withDeadlineAfter(25000, TimeUnit.MILLISECONDS).listFiles(req);
-        Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
-            public void onSuccess(FileTransfer.FileList resFileList) {
-                System.out.println("Successful.");
-                for(int i = 0; i < resFileList.getLstFileNamesCount(); ++i){
-                    rpcCount++;
-                    limiter.release();
-                    LOG.debug("File list request succeeded.");
-                    System.out.println("GOT RESULT");
-                    System.out.println(resFileList.getLstFileNames(i));
-                    chList.get(getIndex()).shutdown();
-                }
-            }
-            public void onFailure(Throwable throwable) {
-                limiter.release();
-                LOG.error("File list request failed.");
-                chList.get(getIndex()).shutdown();
-            }
-        });
+  // non blocking stub
+  private static void doListFiles() {
+    System.out.println("Reached Here..");
+    FileTransfer.RequestFileList req =
+        FileTransfer.RequestFileList.newBuilder().setIsClient(true).build();
+    LOG.debug("File list requested.");
+    ManagedChannel ch =
+        ManagedChannelBuilder.forAddress(
+                edgeServerList.get(0).ipAddress, edgeServerList.get(0).port)
+            .usePlaintext(true)
+            .build();
+    DataTransferServiceGrpc.DataTransferServiceBlockingStub stub =
+        DataTransferServiceGrpc.newBlockingStub(ch);
+    FileTransfer.FileListOrBuilder retVal = FileTransfer.FileList.newBuilder();
+    try {
+      FileTransfer.FileList res = stub.listFiles(req);
+      ((FileTransfer.FileList.Builder) retVal).mergeFrom(res);
+    } catch (StatusRuntimeException e) {
+      LOG.error("Runtime Exception: " + e.getMessage());
     }
+
+    for (int i = 0; i < retVal.getLstFileNamesCount(); i++) {
+      System.out.println(retVal.getLstFileNames(i));
+    }
+
+    //        ListenableFuture<FileTransfer.FileList> res =
+    // stubs.get(getIndex()).withDeadlineAfter(25000, TimeUnit.MILLISECONDS).listFiles(req);
+    //        Futures.addCallback(res, new FutureCallback<FileTransfer.FileList>() {
+    //            public void onSuccess(FileTransfer.FileList resFileList) {
+    //                System.out.println("Successful.");
+    //                for(int i = 0; i < resFileList.getLstFileNamesCount(); ++i){
+    //                    rpcCount++;
+    //                    limiter.release();
+    //                    LOG.debug("File list request succeeded.");
+    //                    System.out.println("GOT RESULT");
+    //                    System.out.println(resFileList.getLstFileNames(i));
+    //                    chList.get(getIndex()).shutdown();
+    //                }
+    //            }
+    //            public void onFailure(Throwable throwable) {
+    //                limiter.release();
+    //                LOG.error("File list request failed.");
+    //                chList.get(getIndex()).shutdown();
+    //            }
+    //        });
+  }
 
     //this uses a blocking stub
     private static FileTransfer.FileMetaData doDownloadChunk(FileTransfer.ChunkInfo chunkInfo, String proxyAddr, int port){
@@ -284,28 +306,28 @@ public class Client {
         }
         LOG.debug("Initiate File Upload started.");
         ManagedChannel ch = chList.get(getIndex());
-        clusterServiceGrpc.clusterServiceFutureStub stub = clusterServiceGrpc.newFutureStub(ch);
-        ListenableFuture<FileResponse> res = stub.initiateFileUpload(req);
-        Futures.addCallback(res, new FutureCallback<FileResponse>(){
-            public void onSuccess(@Nullable FileResponse fileResponse){
-                rpcCount++;
-                limiter.release();
-                LOG.debug("Initiate file upload was successful.");
-            }
-            public void onFailure(Throwable throwable){
-                rpcCount++;
-                limiter.release();
-                LOG.error("Initiate file upload failed.");
-            }
-        });
-        FileResponse fileRes = null;
+        clusterServiceGrpc.clusterServiceBlockingStub stub = clusterServiceGrpc.newBlockingStub(ch);
+        FileResponseOrBuilder retVal = FileResponse.newBuilder();
         try{
-            fileRes = res.get();
-        } catch (Exception e){
-            e.printStackTrace();
-            LOG.error("Error:");
+            FileResponse res = stub.initiateFileUpload(req);
+            ((FileResponse.Builder) retVal).mergeFrom(res);
+        } catch  (StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
         }
-        return fileRes;
+//        ListenableFuture<FileResponse> res = stub.initiateFileUpload(req);
+//        Futures.addCallback(res, new FutureCallback<FileResponse>(){
+//            public void onSuccess(@Nullable FileResponse fileResponse){
+//                rpcCount++;
+//                limiter.release();
+//                LOG.debug("Initiate file upload was successful.");
+//            }
+//            public void onFailure(Throwable throwable){
+//                rpcCount++;
+//                limiter.release();
+//                LOG.error("Initiate file upload failed.");
+//            }
+//        });
+        return ((FileResponse.Builder) retVal).build();
 
     }
 
@@ -364,27 +386,35 @@ public class Client {
         }
         LOG.debug("Is File Present started.");
         ManagedChannel ch = chList.get(getIndex());
-        clusterServiceGrpc.clusterServiceFutureStub stub = clusterServiceGrpc.newFutureStub(ch);
-        ListenableFuture<FileResponse> res = stub.withDeadlineAfter(5000, TimeUnit.MILLISECONDS).isFilePresent(req);
-        Futures.addCallback(res, new FutureCallback<FileResponse>() {
-            public void onSuccess(@Nullable FileResponse fileResponse) {
-                rpcCount++;
-                limiter.release();
-                LOG.debug("successfully completed request.");
-            }
-
-            public void onFailure(Throwable throwable) {
-                LOG.error("IsFilePresent failed. "+Status.fromThrowable(throwable));
-            }
-        });
-        FileResponse fileRes = null;
+        clusterServiceGrpc.clusterServiceBlockingStub stub = clusterServiceGrpc.newBlockingStub(ch);
+        FileResponseOrBuilder retVal = FileResponse.newBuilder();
         try{
-            fileRes = res.get();
-        } catch (Exception e){
-            e.printStackTrace();
-            LOG.error("Error:");
+            FileResponse res = stub.isFilePresent(req);
+            ((FileResponse.Builder) retVal).mergeFrom(res);
+        } catch  (StatusRuntimeException e){
+            LOG.error("Runtime Exception: "+e.getMessage());
         }
-        return fileRes;
+//        ListenableFuture<FileResponse> res = stub.withDeadlineAfter(5000, TimeUnit.MILLISECONDS).isFilePresent(req);
+//        Futures.addCallback(res, new FutureCallback<FileResponse>() {
+//            public void onSuccess(@Nullable FileResponse fileResponse) {
+//                rpcCount++;
+//                limiter.release();
+//                LOG.debug("successfully completed request.");
+//            }
+//
+//            public void onFailure(Throwable throwable) {
+//                LOG.error("IsFilePresent failed. "+Status.fromThrowable(throwable));
+//            }
+//        });
+//        FileResponse fileRes = null;
+//        try{
+//            fileRes = res.get();
+//        } catch (Exception e){
+//            e.printStackTrace();
+//            LOG.error("Error:");
+//        }
+//        return fileRes;
+        return ((FileResponse.Builder) retVal).build();
     }
 
     public static int getIndex(){
