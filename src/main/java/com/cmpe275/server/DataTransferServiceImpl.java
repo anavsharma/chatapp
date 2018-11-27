@@ -186,18 +186,14 @@ public class DataTransferServiceImpl extends DataTransferServiceGrpc.DataTransfe
                 consolidatedList.add(globalList2);
             }
         }
-        FileTransfer.FileListOrBuilder allFiles = FileTransfer.FileList.newBuilder();
         List<String> files = new ArrayList<String>();
-        int counter = 0;
+        FileTransfer.FileListOrBuilder retList = FileTransfer.FileList.newBuilder();
         for(FileTransfer.FileList fileList: consolidatedList){
-//            for(int i = 0; (i < fileList.getLstFileNamesCount()) && (fileList.getLstFileNamesCount()!=0); i++){
-//                ((FileTransfer.FileList.Builder) allFiles).setLstFileNames(counter, fileList.getLstFileNames(i));
-//                ++counter;
-//            }
-             fileList.
+            ((FileTransfer.FileList.Builder) retList).mergeFrom(fileList);
         }
+        ((FileTransfer.FileList.Builder) retList).mergeFrom(localList);
 
-        return ((FileTransfer.FileList.Builder) allFiles).build();
+        return ((FileTransfer.FileList.Builder) retList).build();
     }
 
     private FileTransfer.FileList getFileListLocal(FileTransfer.RequestFileList request) {
